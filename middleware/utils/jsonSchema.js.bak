@@ -1,0 +1,506 @@
+import Ajv from 'ajv'
+import ono from 'ono'
+import * as _ from 'lodash'
+
+const ajv = new Ajv({
+  allErrors: true,
+  verbose: true,
+  coerceTypes: 'array',
+  useDefaults: true,
+  formats: {}
+})
+const dataTypes = [
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'array',
+  'object',
+  'file'
+]
+const MIN_SAFE_INTEGER = Number.MIN_SAFE_INTEGER || -9007199254740991
+const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || 9007199254740991
+const MAX_VALUE = Number.MAX_VALUE || 1.7976931348623157e308
+const MIN_VALUE = -MAX_VALUE
+const EPSILON = Number.EPSILON || 2.220446049250313e-16
+const format = {
+  integer: /^[+-]?(\d+|0x[\dA-F]+)$/i,
+  int32: {
+    min: -2147483648,
+    max: 2147483647
+  },
+
+  int64: {
+    min: MIN_SAFE_INTEGER,
+    max: MAX_SAFE_INTEGER
+  },
+
+  byte: {
+    min: 0,
+    max: 255
+  },
+
+  float: {
+    min: -3.402823e38,
+    max: 3.402823e38
+  },
+
+  double: {
+    min: MIN_VALUE,
+    max: MAX_VALUE
+  }
+}
+const customProperties = {
+  'x-type': 'type',
+  'x-items': 'items',
+  'x-exclusiveMaximum': 'exclusiveMaximum',
+  'x-exclusiveMinimum': 'exclusiveMinimum',
+  'x-additionalItems': 'additionalItems',
+  'x-additionalProperties': 'additionalProperties',
+  'x-contains': 'contains',
+  'x-patternProperties': 'patternProperties',
+  'x-dependencies': 'dependencies',
+  'x-propertyNames': 'propertyNames',
+  'x-const': 'const',
+  'x-if': 'if',
+  'x-then': 'then',
+  'x-else': 'else',
+  'x-anyOf': 'anyOf',
+  'x-oneOf': 'oneOf',
+  'x-not': 'not'
+}
+const modifiedProperties = {
+  // if exclusiveMaximum is present
+  // remove maximum property in both converted schema and schema
+  exclusiveMaximum(schema) {
+    if (typeof schema['exclusiveMaximum'] === 'boolean') {
+      return schema['exclusiveMaximum']
+        ? schema['maximum']
+        : schema['maximum'] + 1
+    }
+    if (typeof schema['exclusiveMaximum'] === 'number') {
+      return schema['exclusiveMaximum']
+    }
+    throw ono(
+      { status: 500 },
+      'exclusiveMaximum should be a boolean or a number'
+    )
+  },
+  exclusiveMinimum(schema) {
+    if (typeof schema['exclusiveMinimum'] === 'boolean') {
+      return schema['exclusiveMinimum']
+        ? schema['minimum']
+        : schema['minimum'] - 1
+    }
+    if (typeof schema['exclusiveMinimum'] === 'number') {
+      return schema['exclusiveMinimum']
+    }
+    throw ono(
+      { status: 500 },
+      'exclusiveMinimum should be a boolean or a number'
+    )
+  }
+}
+const ignoreProperties = []
+
+// tasks to do:
+// convert schema -> json schema
+// parse number from query (string) to proper format
+// parse object number property
+// parse array property
+export const jsonSchema = schema => {
+  if (!schema) {
+    throw ono({ status: 500 }, 'Missing JSON schema')
+  }
+  if (schema.type !== undefined && dataTypes.indexOf(schema.type) === -1) {
+    throw ono({ status: 500 }, 'Invalid JSON schema type: %s', schema.type)
+  }
+  return {
+    parse(value) {
+      const convertedSchema = convertSchema(schema)
+      jsonValidate(convertedSchema, value)
+      return value
+      // switch (convertedSchema.type) {
+      //   case 'integer':
+      //     return validateInteger(convertedSchema, value)
+      //   case 'number':
+      //     return validateNumber(convertedSchema, value)
+      //   case 'boolean':
+      //     return validateBoolean(convertedSchema, value)
+      //   case 'string':
+      //     return validateString(convertedSchema, value)
+      //   case 'array':
+      //     return validateArray(convertedSchema, value)
+      //   case 'null':
+      //     return validateNull(convertedSchema, value)
+      //   case 'object':
+      //     return validateObject(convertedSchema, value)
+      //   default:
+      //     jsonValidate(convertedSchema, value)
+      //     return value
+      // }
+    }
+  }
+}
+
+// convert schema
+// convert from `x-` property to json schema property name
+// convert modified property to json schema
+// ignore unnecessary property
+function convertSchema(schema) {
+  if (_.isArray(schema)) {
+    return convertArraySchema(schema)
+  }
+  if (_.isObject(schema)) {
+    return convertObjectSchema(schema)
+  }
+  return schema
+}
+
+// if schema is an array of schema object then convert
+// else return value
+function convertArraySchema(schema) {
+  if (schema.every(element => !_.isObject(element))) {
+    return schema
+  }
+  return schema.map(property => convertObjectSchema(property))
+}
+
+function convertObjectSchema(schema) {
+  // remove attributes that also having `x-` version inside schema
+  schema = Object.keys(schema).reduce((accumulator, schemaKey) => {
+    if (
+      Object.values(customProperties).includes(schemaKey) &&
+      Object.keys(schema).includes(`x-${schemaKey}`)
+    ) {
+      return accumulator
+    }
+    return { ...accumulator, [schemaKey]: schema[schemaKey] }
+  }, {})
+
+  return Object.keys(schema).reduce((accumulator, current) => {
+    // remove ignore properties
+    if (ignoreProperties.includes(current)) {
+      return accumulator
+    }
+
+    // convert modified properties
+    if (Object.keys(modifiedProperties).includes(current)) {
+      return {
+        ...accumulator,
+        [current]: modifiedProperties[current](schema)
+      }
+    }
+
+    // recursively convert properties value
+    schema[current] = convertSchema(schema[current])
+
+    // change custom properties name to json schema name
+    if (Object.keys(customProperties).includes(current)) {
+      return {
+        ...accumulator,
+        [customProperties[current]]: schema[current]
+      }
+    }
+
+    // if no modify needed, then keep current schema value
+    return {
+      ...accumulator,
+      [current]: schema[current]
+    }
+  }, {})
+}
+
+// validate using converted schema and return error if needed
+function jsonValidate(schema, value) {
+  if (ajv.validate(schema, value)) {
+    console.log('schema', JSON.stringify(schema))
+    console.log('value', JSON.stringify(value))
+    // console.log(ajv.validate(schema, value))
+    return true
+  } else {
+    console.log(ajv.errors)
+    console.log(JSON.stringify(schema))
+    console.log(typeof value, JSON.stringify(value))
+    // return the first error of this schema
+    throw ono(
+      ajv.errors,
+      { status: 400 },
+      '"%s" %s',
+      schema.name,
+      ajv.errors[0].message
+    )
+  }
+}
+
+// get value to validate.
+// if no value provided or empty string or empty object
+// then return default value in schema.
+// or return the raw value
+function getValueToValidate(schema, value) {
+  if (
+    value === undefined ||
+    value === '' ||
+    (schema.type === 'object' && _.isObject(value) && _.isEmpty(value))
+  ) {
+    if (schema.default !== undefined) {
+      value = schema.default
+    }
+  }
+  return value
+}
+
+// parse Integer
+function parseInteger(schema, value) {
+  value = getValueToValidate(schema, value)
+  const parsedValue = parseInt(value)
+
+  // test provided value whether is number or not
+  if (
+    _.isNaN(parsedValue) ||
+    !_.isFinite(parsedValue) ||
+    !format.integer.test(value)
+  ) {
+    return value
+  }
+
+  return parsedValue
+}
+
+// parse and validate integer
+function validateInteger(schema, value) {
+  const parsedValue = parseInteger(schema, value)
+  // validate against schema
+  jsonValidate(schema, parsedValue)
+
+  // Validate the format
+  // TODO: will move this to custom format later
+  let range = format[schema.format]
+  if (range) {
+    if (parsedValue < range.min || parsedValue > range.max) {
+      throw ono(
+        { status: 400 },
+        '"%s" is not a valid %s. Must be between %d and %d',
+        parsedValue,
+        schema.format,
+        range.min,
+        range.max
+      )
+    }
+  }
+  return parsedValue
+}
+
+// parse number
+function parseNumber(schema, value) {
+  value = getValueToValidate(schema, value)
+  const parsedValue = parseFloat(value)
+
+  if (_.isNaN(parsedValue) || !_.isFinite(parsedValue)) {
+    return value
+  }
+  return parsedValue
+}
+
+// parse and validate number
+function validateNumber(schema, value) {
+  const parsedValue = parseNumber(schema, value)
+  // validate against schema
+  jsonValidate(schema, parsedValue)
+
+  // Validate the format
+  // TODO: will move this to custom format later
+  let range = format[schema.format]
+  if (range) {
+    if (parsedValue < range.min || parsedValue > range.max) {
+      throw ono(
+        { status: 400 },
+        '"%s" is not a valid %s. Must be between %d and %d',
+        value,
+        schema.format,
+        range.min,
+        range.max
+      )
+    }
+  }
+  return parsedValue
+}
+
+// parse boolean
+// boolean value pass via header, query, and form data is string
+function parseBoolean(schema, value) {
+  value = getValueToValidate(schema, value)
+  if (_.isBoolean(value)) {
+    return value
+  }
+  if (_.isString(value)) {
+    if (value.trim().toLowerCase() === 'true') {
+      return true
+    }
+    if (value.trim().toLowerCase() === 'false') {
+      return false
+    }
+  }
+  return value
+}
+
+function validateBoolean(schema, value) {
+  const parsedValue = parseBoolean(schema, value)
+  // validate against schema
+  jsonValidate(schema, parsedValue)
+  return parsedValue
+}
+
+function parseNull(schema, value) {
+  value = getValueToValidate(schema, value)
+  if (_.isNull(value)) {
+    return value
+  }
+  if (_.isString(value)) {
+    if (value.toLowerCase() === 'null') {
+      return null
+    }
+    // TODO: reconsider this: '' to be parsed as null
+    if (value.toLowerCase() === '') {
+      return null
+    }
+  }
+  return value
+}
+
+function validateNull(schema, value) {
+  const parsedString = parseNull(schema, value)
+  jsonValidate(schema, parsedString)
+  return value
+}
+
+function parseString(schema, value) {
+  return getValueToValidate(schema, value)
+}
+
+function validateString(schema, value) {
+  const parsedString = parseString(schema, value)
+  jsonValidate(schema, parsedString)
+  return value
+}
+
+function parseArray(schema, value) {
+  value = getValueToValidate(schema, value)
+  let parsedValue = value
+
+  if (_.isString(parsedValue) && parsedValue.length) {
+    const arrayFormats = {
+      csv: ',',
+      tsv: '\t',
+      ssv: ' ',
+      pipes: '|'
+    }
+    const currentArrayFormat =
+      schema.collectionFormat &&
+      typeof arrayFormats[schema.collectionFormat] !== 'undefined'
+        ? schema.collectionFormat
+        : 'csv'
+    parsedValue = value
+      .split(arrayFormats[currentArrayFormat])
+      .map(value => value.trim())
+  }
+  // TODO: reconsider this, transform '' to [] if type is array
+  if (_.isString(parsedValue) && parsedValue === '') {
+    parsedValue = []
+  }
+
+  if (_.isArray(parsedValue)) {
+    parsedValue = parseArrayItems(schema, parsedValue)
+  }
+
+  return parsedValue
+}
+
+function parseArrayItems(schema, items) {
+  if (schema.contains) {
+    // schema.contains is a schema object
+    return parseSimpleArrayItems(schema.contains, items)
+  } else if (schema.items) {
+    if (_.isArray(schema.items)) {
+      return parseTupleArrayItems(schema, items)
+    } else {
+      return parseSimpleArrayItems(schema.items, items)
+    }
+  }
+  // array schema always have schema.items attributes, so it should not go this far
+  return items
+}
+
+function parseSimpleArrayItems(schema, items) {
+  return items.map(item => parseRequestValue(schema, item))
+}
+
+function parseTupleArrayItems(schema, items) {
+  return items.map((item, index) => {
+    if (schema.items[index]) {
+      return parseRequestValue(schema.items[index], item)
+    } else {
+      // this means length of value greater than length of schema items
+      // if additionalItem exist and is schema object then continue to parse use that schema
+      if (schema.additionalItems && schema.additionalItems.type) {
+        return parseRequestValue(schema.additionalItems, item)
+      }
+    }
+    return item
+  })
+}
+
+function validateArray(schema, value) {
+  const parsedValue = parseArray(schema, value)
+  jsonValidate(schema, parsedValue)
+  return parsedValue
+}
+
+function parseObject(schema, value) {
+  value = getValueToValidate(schema, value)
+  let parsedValue = value
+  if (_.isString(value) && value.length) {
+    parsedValue = JSON.parse(value)
+  }
+  if (_.isObject(schema.properties)) {
+    Object.keys(schema.properties).forEach(key => {
+      if (!_.isUndefined(parsedValue[key])) {
+        parsedValue[key] = parseRequestValue(
+          schema.properties[key],
+          parsedValue[key]
+        )
+      }
+    })
+  }
+  console.log(schema, parsedValue)
+
+  return parsedValue
+}
+
+function validateObject(schema, value) {
+  const parsedValue = parseObject(schema, value)
+  jsonValidate(schema, parsedValue)
+  return parsedValue
+}
+
+function parseRequestValue(schema, value) {
+  if (!schema) {
+    return value
+  }
+  switch (schema.type) {
+    case 'integer':
+      return parseInteger(schema, value)
+    case 'number':
+      return parseNumber(schema, value)
+    case 'boolean':
+      return parseBoolean(schema, value)
+    case 'null':
+      return parseNull(schema, value)
+    case 'array':
+      return parseArray(schema, value)
+    case 'object':
+      return parseObject(schema, value)
+    default:
+      return value
+  }
+}

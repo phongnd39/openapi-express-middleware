@@ -1,0 +1,46 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "test swagger middleware",
+    "description": "a test swagger file"
+  },
+  "host": "test.com",
+  "tags": [
+    {
+      "name": "test",
+      "description": "a test tag"
+    }
+  ],
+  "schemes": ["http", "https"],
+  "consumes": [
+    "application/json",
+    "application/x-www-form-urlencoded",
+    "text",
+    "text/plain"
+  ],
+  "produces": ["application/json"],
+  "security": [],
+  "securityDefinitions": {},
+  "definitions": {
+    "Success": {
+      "type": "object",
+      "example": {
+        "message": "Success"
+      }
+    },
+    "Error400": {
+      "type": "object",
+      "example": {
+        "message": "Bad Request"
+      }
+    },
+    "Error500": {
+      "type": "object",
+      "example": {
+        "message": "Internal Server Error"
+      }
+    }
+  },
+  "paths": {}
+}
