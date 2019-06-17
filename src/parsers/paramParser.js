@@ -8,8 +8,8 @@ export function paramParser(app) {
     parsePathParam,
     parseSimpleParams,
     parseFormDataParams,
-    parseBodyParam,
-    viewData
+    parseBodyParam
+    // viewData
   ]
 }
 

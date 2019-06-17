@@ -1,7 +1,6 @@
 {
   "name": "swagger-middleware",
   "version": "1.0.0",
-  "main": "index.js",
   "repository": "https://github.com/phongnd39/swagger-middleware.git",
   "author": "phongnd <nguyenphong.hanu@gmail.com>",
   "license": "MIT",
@@ -11,6 +10,13 @@
     "lint": "eslint --ext .js .",
     "test": "jest"
   },
+  "files": [
+    "dist",
+    "package.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
   "dependencies": {
     "ajv": "^6.10.0",
     "body-parser": "^1.19.0",

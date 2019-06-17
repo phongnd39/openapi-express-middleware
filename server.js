@@ -1,7 +1,7 @@
 const Express = require('express')
 const app = Express()
-const createMiddleware = require('swagger-express-middleware')
 const swaggerFile = require('./swagger')
+const createMiddleware = require('./dist/index.js').default
 const parseRequest = require('./dist/index.js').parseRequest
 
 createMiddleware(swaggerFile, app, (error, swaggerMiddleware) => {
@@ -25,12 +25,9 @@ createMiddleware(swaggerFile, app, (error, swaggerMiddleware) => {
     res.json(req.swagger)
   })
   app.post('/test/:path', (req, res) => {
-    // res.send(req.query)
     res.json(req.swagger)
   })
   app.post('/test/:path/test2/:path2', (req, res) => {
-    // res.send(req.query)
-    console.log(req.params)
     res.json(req.swagger)
   })
 })

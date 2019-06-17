@@ -86,12 +86,12 @@ function parseArray(schema, value) {
 
 // validate using converted schema and return error if needed
 function jsonValidate(schema, value) {
-  console.log(JSON.stringify(schema))
-  console.log(typeof value, JSON.stringify(value))
+  // console.log(JSON.stringify(schema))
+  // console.log(typeof value, JSON.stringify(value))
   if (ajv.validate(schema, value)) {
     return true
   } else {
-    console.log(ajv.errors)
+    // console.log(ajv.errors)
     // return the first error of this schema
     throw ono(
       ajv.errors,
