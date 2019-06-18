@@ -16,7 +16,6 @@
   "consumes": [
     "application/json",
     "application/x-www-form-urlencoded",
-    "text",
     "text/plain"
   ],
   "produces": ["application/json"],

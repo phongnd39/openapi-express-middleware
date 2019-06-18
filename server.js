@@ -1,8 +1,7 @@
 const Express = require('express')
 const app = Express()
 const swaggerFile = require('./swagger')
-const expressOpenApiMiddleware = require('./dist/index.js')
-  .expressOpenApiMiddleware
+const expressOpenApiMiddleware = require('./dist/index.js').default
 
 app.use(
   expressOpenApiMiddleware(swaggerFile, app, {

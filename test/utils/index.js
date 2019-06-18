@@ -2,7 +2,7 @@ import express from 'express'
 import request from 'supertest'
 import * as _ from 'lodash'
 import SwaggerParser from 'swagger-parser'
-import { expressOpenApiMiddleware } from '../../src'
+import expressOpenApiMiddleware from '../../src'
 import template from './template'
 
 const defaultResponses = {
@@ -97,7 +97,7 @@ function createExpressInstance(swaggerFile, position) {
     }),
     (error, req, res, next) => {
       if (error) {
-        // console.log(error)
+        console.log(error)
         return res.status(error.status).json({
           message: error.message
         })

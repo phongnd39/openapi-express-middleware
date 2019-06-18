@@ -1,15 +1,13 @@
 import * as _ from 'lodash'
 import ono from 'ono'
-import { jsonSchema } from '../utils'
+import { jsonSchema } from '../utils/jsonSchema'
 
 export function paramParser() {
   return [
-    // viewData,
     parsePathParam,
     parseSimpleParams,
     parseFormDataParams,
     parseBodyParam
-    // viewData
   ]
 }
 
@@ -130,14 +128,6 @@ function parsePathParam(req, res, next) {
       req.params[paramName] = parseParameter(paramName, paramValue, schema)
     }
   }
-  next()
-}
-
-function viewData(req, res, next) {
-  console.log('query', req.query)
-  console.log('headers', req.headers)
-  console.log('body', JSON.stringify(req.body))
-  console.log('params', req.params)
   next()
 }
 

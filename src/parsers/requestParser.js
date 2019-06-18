@@ -1,6 +1,6 @@
 import * as _object from 'lodash/object'
+import typeis from 'type-is'
 import bodyParser from 'body-parser'
-import cookieParser from 'cookie-parser'
 import multer from 'multer'
 import tmp from 'tmp'
 
@@ -8,10 +8,8 @@ import tmp from 'tmp'
 tmp.setGracefulCleanup()
 
 export function requestParser(options = {}) {
+  // defined default options here
   const defaultOptions = {
-    cookie: {
-      secret: undefined
-    },
     json: {
       limit: '1mb',
       type: ['json', '*/json', '+json']
@@ -29,18 +27,51 @@ export function requestParser(options = {}) {
       type: 'application/*'
     },
     multipart: {
-      dest: tmp.dirSync({ prefix: 'swagger-middleware-', unsafeCleanup: true })
-        .name,
+      dest: tmp.dirSync({
+        prefix: 'express-openapi-middleware-',
+        unsafeCleanup: true
+      }).name,
       putSingleFilesInArray: false
     }
   }
   options = _object.merge({}, defaultOptions, options)
-  return [
-    cookieParser(options.cookie.secret, options.cookie),
-    bodyParser.json(options.json),
-    bodyParser.text(options.text),
-    bodyParser.urlencoded(options.urlencoded),
-    bodyParser.raw(options.raw)
-    // multer(options.multipart) // TODO: should not make multer global middleware. should check swagger and auto enable it there
-  ]
+  return (req, res, next) => {
+    // if swagger or swagger.api.consumes not found or not an array then to the next middleware
+    if (
+      !req.swagger ||
+      !req.swagger.api ||
+      !Array.isArray(req.swagger.api.consumes)
+    ) {
+      return next()
+    }
+    // check type of req
+    const requestContentType = typeis(req, req.swagger.api.consumes)
+    if (!requestContentType) {
+      return next()
+    }
+    // check type of return consume type
+    if (typeis.is(requestContentType, ['json', '*/json', '+json'])) {
+      // json
+      return bodyParser.json(options.json)(req, res, () => next())
+    }
+    if (typeis.is(requestContentType, ['text', 'text/*'])) {
+      // text
+      return bodyParser.text(options.text)(req, res, () => next())
+    }
+    if (typeis.is(requestContentType, ['urlencoded'])) {
+      // form urlencode
+      return bodyParser.urlencoded(options.urlencoded)(req, res, () => next())
+    }
+    if (typeis.is(requestContentType, ['application/*'])) {
+      // raw
+      return bodyParser.raw(options.raw)(req, res, () => next())
+    }
+    if (typeis.is(requestContentType, ['multipart'])) {
+      // file upload
+      // TODO: read swagger file, extract file input fields and call multer here
+      // multer(options.multipart)
+      return next()
+    }
+    return next()
+  }
 }

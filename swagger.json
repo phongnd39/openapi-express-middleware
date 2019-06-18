@@ -11,8 +11,8 @@
   "consumes": [
     "application/json",
     "application/x-www-form-urlencoded",
-    "text",
-    "text/plain"
+    "text/plain",
+    "multipart/form-data"
   ],
   "produces": ["application/json"],
   "security": [],

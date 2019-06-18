@@ -11,98 +11,6 @@ const ajvOptions = {
 }
 const ajv = new Ajv(ajvOptions)
 
-export function jsonSchema(schema) {
-  const convertedSchema = convertSchema(schema)
-  validateSchema(convertedSchema)
-  return {
-    parse(value) {
-      const parsedValue = parseRequestValue(convertedSchema, value)
-      // if validation failed then throw error here
-      jsonValidate(convertedSchema, parsedValue)
-      return parsedValue
-    }
-  }
-}
-
-function parseRequestValue(schema, value) {
-  if (!schema) {
-    return value
-  }
-  const parsedValue = getValueToValidate(schema, value)
-  switch (schema.type) {
-    case 'null':
-      return parseNull(schema, parsedValue)
-    case 'array':
-      return parseArray(schema, parsedValue)
-    default:
-      return parsedValue
-  }
-}
-
-function parseNull(schema, value) {
-  if (_.isNull(value)) {
-    return value
-  }
-  if (_.isString(value)) {
-    if (value.toLowerCase() === 'null') {
-      return null
-    }
-    // TODO: reconsider this: '' to be parsed as null
-    if (value === '') {
-      return null
-    }
-  }
-  return value
-}
-
-function parseArray(schema, value) {
-  if (_.isString(value) && value.length) {
-    const arrayFormats = {
-      csv: ',',
-      tsv: '\t',
-      ssv: ' ',
-      pipes: '|'
-    }
-    const currentArrayFormat =
-      schema.collectionFormat &&
-      typeof arrayFormats[schema.collectionFormat] !== 'undefined'
-        ? schema.collectionFormat
-        : 'csv'
-    value = value
-      .split(arrayFormats[currentArrayFormat])
-      .map(value => value.trim())
-  }
-  // TODO: reconsider this, transform '' to [] if type is array
-  if (_.isString(value) && value === '') {
-    value = []
-  }
-
-  // if (_.isArray(value)) {
-  //   value = parseArrayItems(schema, value)
-  // }
-
-  return value
-}
-
-// validate using converted schema and return error if needed
-function jsonValidate(schema, value) {
-  // console.log(JSON.stringify(schema))
-  // console.log(typeof value, JSON.stringify(value))
-  if (ajv.validate(schema, value)) {
-    return true
-  } else {
-    // console.log(ajv.errors)
-    // return the first error of this schema
-    throw ono(
-      ajv.errors,
-      { status: 400 },
-      '"%s" %s',
-      schema.name,
-      ajv.errors[0].message
-    )
-  }
-}
-
 const dataTypes = [
   'string',
   'number',
@@ -113,60 +21,6 @@ const dataTypes = [
   'file',
   'null'
 ]
-
-function validateSchema(schema) {
-  // TODO: rewrite this
-  if (!schema) {
-    throw ono({ status: 500 }, 'Missing JSON schema')
-  }
-  if (schema.type !== undefined && dataTypes.indexOf(schema.type) === -1) {
-    throw ono({ status: 500 }, 'Invalid JSON schema type: %s', schema.type)
-  }
-}
-
-// get value to validate.
-// if value type is not object or array
-// and default is present
-// and value is empty string ('') or null
-// then return default value
-// NOTE: ajv will automatically get default for object and array type
-function getValueToValidate(schema, value) {
-  if (
-    value === undefined ||
-    value === '' ||
-    (schema.type === 'object' && _.isObject(value) && _.isEmpty(value))
-  ) {
-    if (schema.default !== undefined) {
-      value = schema.default
-    }
-  }
-  return value
-}
-
-// convert schema
-// convert from `x-` property to json schema property name
-// convert modified property to json schema
-// ignore unnecessary property
-function convertSchema(schema) {
-  schema = convertRequiredInPathSchema(schema)
-  if (_.isArray(schema)) {
-    return convertArraySchema(schema)
-  }
-  if (_.isObject(schema)) {
-    return convertObjectSchema(schema)
-  }
-  return schema
-}
-
-// if schema is an array of schema object then convert
-// else return value
-function convertArraySchema(schema) {
-  if (schema.every(element => !_.isObject(element))) {
-    return schema
-  }
-  return schema.map(property => convertObjectSchema(property))
-}
-
 const customProperties = {
   'x-type': 'type',
   'x-items': 'items',
@@ -220,6 +74,57 @@ const modifiedProperties = {
 }
 const ignoreProperties = []
 
+export function jsonSchema(schema) {
+  const convertedSchema = convertSchema(schema)
+  validateSchema(convertedSchema)
+  return {
+    parse(value) {
+      const parsedValue = parseRequestValue(convertedSchema, value)
+      // if validation failed then throw error here
+      jsonValidate(convertedSchema, parsedValue)
+      return parsedValue
+    }
+  }
+}
+
+// validate using converted schema and return error if needed
+function jsonValidate(schema, value) {
+  if (ajv.validate(schema, value)) {
+    return true
+  } else {
+    // return the first error of this schema
+    throw ono(
+      ajv.errors,
+      { status: 400 },
+      '"%s" %s',
+      schema.name,
+      ajv.errors[0].message
+    )
+  }
+}
+
+// convert schema
+// convert from `x-` property to json schema property name
+// convert modified property to json schema
+// ignore unnecessary property
+function convertSchema(schema) {
+  schema = convertRequiredInPathSchema(schema)
+  if (_.isArray(schema)) {
+    return convertArraySchema(schema)
+  }
+  if (_.isObject(schema)) {
+    return convertObjectSchema(schema)
+  }
+  return schema
+}
+// if schema is an array of schema object then convert
+// else return value
+function convertArraySchema(schema) {
+  if (schema.every(element => !_.isObject(element))) {
+    return schema
+  }
+  return schema.map(property => convertObjectSchema(property))
+}
 function convertObjectSchema(schema) {
   // remove attributes that also having `x-` version inside schema
   schema = Object.keys(schema).reduce((accumulator, schemaKey) => {
@@ -264,7 +169,6 @@ function convertObjectSchema(schema) {
     }
   }, {})
 }
-
 // in path schema, required: true is required, but it conflict with json schema type (array)
 // will convert required: true into require: [:paramName]
 function convertRequiredInPathSchema(schema) {
@@ -274,4 +178,85 @@ function convertRequiredInPathSchema(schema) {
     }
   }
   return schema
+}
+function validateSchema(schema) {
+  // TODO: rewrite this
+  if (!schema) {
+    throw ono({ status: 500 }, 'Missing JSON schema')
+  }
+  if (schema.type !== undefined && dataTypes.indexOf(schema.type) === -1) {
+    throw ono({ status: 500 }, 'Invalid JSON schema type: %s', schema.type)
+  }
+}
+
+// get value to validate.
+// if value type is not object or array
+// and default is present
+// and value is empty string ('') or null
+// then return default value
+// NOTE: ajv will automatically get default for object and array type
+function getValueToValidate(schema, value) {
+  if (
+    value === undefined ||
+    value === '' ||
+    (schema.type === 'object' && _.isObject(value) && _.isEmpty(value))
+  ) {
+    if (schema.default !== undefined) {
+      value = schema.default
+    }
+  }
+  return value
+}
+function parseRequestValue(schema, value) {
+  if (!schema) {
+    return value
+  }
+  const parsedValue = getValueToValidate(schema, value)
+  switch (schema.type) {
+    case 'null':
+      return parseNull(schema, parsedValue)
+    case 'array':
+      return parseArray(schema, parsedValue)
+    default:
+      return parsedValue
+  }
+}
+function parseNull(schema, value) {
+  if (_.isNull(value)) {
+    return value
+  }
+  if (_.isString(value)) {
+    if (value.toLowerCase() === 'null') {
+      return null
+    }
+    // TODO: reconsider this: '' to be parsed as null
+    if (value === '') {
+      return null
+    }
+  }
+  return value
+}
+function parseArray(schema, value) {
+  if (_.isString(value) && value.length) {
+    const arrayFormats = {
+      csv: ',',
+      tsv: '\t',
+      ssv: ' ',
+      pipes: '|'
+    }
+    const currentArrayFormat =
+      schema.collectionFormat &&
+      typeof arrayFormats[schema.collectionFormat] !== 'undefined'
+        ? schema.collectionFormat
+        : 'csv'
+    value = value
+      .split(arrayFormats[currentArrayFormat])
+      .map(value => value.trim())
+  }
+  // TODO: reconsider this, transform '' to [] if type is array
+  if (_.isString(value) && value === '') {
+    value = []
+  }
+
+  return value
 }

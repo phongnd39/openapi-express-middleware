@@ -1,39 +1,32 @@
-import createMiddleware, {
-  DataStore,
-  FileDataStore,
-  MemoryDataStore,
-  Resource
-} from 'swagger-express-middleware'
-import { requestParser, paramParser } from './parsers'
+import * as _object from 'lodash/object'
+import createMiddleware from 'swagger-express-middleware'
+import { paramParser, requestParser } from './parsers'
 
-function parseRequest(app, options = {}) {
-  return [...requestParser(options), ...paramParser()]
-}
-
-function expressOpenApiMiddleware(swagger, router, options = {}) {
+export default function expressOpenApiMiddleware(
+  swagger,
+  router,
+  options = {}
+) {
   const defaultOptions = {
     enableBodyParser: false,
-    enableValidateRequest: false
+    enableValidateRequest: false,
+    parserOptions: {}
   }
-  const mergedOptions = { ...defaultOptions, ...options }
+  const mergedOptions = _object.merge({}, defaultOptions, options)
   const swaggerExpressMiddleware = createMiddleware(swagger, router)
   let middleware = []
   if (mergedOptions.enableBodyParser || mergedOptions.enableValidateRequest) {
     middleware = [...middleware, ...swaggerExpressMiddleware.metadata()]
   }
   if (mergedOptions.enableBodyParser) {
-    middleware = [...middleware, ...parseRequest(router)]
+    middleware = [...middleware, requestParser(mergedOptions.parserOptions)]
   }
   if (mergedOptions.enableValidateRequest) {
-    middleware = [...middleware, ...swaggerExpressMiddleware.validateRequest()]
+    middleware = [
+      ...middleware,
+      ...paramParser(),
+      ...swaggerExpressMiddleware.validateRequest()
+    ]
   }
   return middleware
-}
-
-export {
-  expressOpenApiMiddleware,
-  DataStore,
-  FileDataStore,
-  MemoryDataStore,
-  Resource
 }

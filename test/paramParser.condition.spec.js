@@ -123,7 +123,7 @@ const testSuites = {
         test4: 'string'
       },
       expectStatus: 400
-    },
+    }
   ]
 }
 

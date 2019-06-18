@@ -74,7 +74,7 @@ const testSuites = {
     {
       name: 'incorrect boolean property',
       value: {
-        boolean: "string"
+        boolean: 'string'
       },
       expectStatus: 400
     },

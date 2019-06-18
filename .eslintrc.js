@@ -10,13 +10,13 @@ module.exports = {
     ecmaVersion: 8,
     sourceType: 'module',
     ecmaFeatures: {
-      modules: true
+      modules: true,
+      experimentalObjectRestSpread: true
     }
   },
   extends: ['plugin:prettier/recommended'],
   plugins: ['prettier'],
   globals: {
-    chai: 'writable',
     expect: 'writable'
   }
 }
