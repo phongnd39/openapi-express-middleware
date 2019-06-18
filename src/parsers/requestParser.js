@@ -52,19 +52,19 @@ export function requestParser(options = {}) {
     // check type of return consume type
     if (typeis.is(requestContentType, ['json', '*/json', '+json'])) {
       // json
-      return bodyParser.json(options.json)(req, res, () => next())
+      return bodyParser.json(options.json)(req, res, next)
     }
     if (typeis.is(requestContentType, ['text', 'text/*'])) {
       // text
-      return bodyParser.text(options.text)(req, res, () => next())
+      return bodyParser.text(options.text)(req, res, next)
     }
     if (typeis.is(requestContentType, ['urlencoded'])) {
       // form urlencode
-      return bodyParser.urlencoded(options.urlencoded)(req, res, () => next())
+      return bodyParser.urlencoded(options.urlencoded)(req, res, next)
     }
     if (typeis.is(requestContentType, ['application/*'])) {
       // raw
-      return bodyParser.raw(options.raw)(req, res, () => next())
+      return bodyParser.raw(options.raw)(req, res, next)
     }
     if (typeis.is(requestContentType, ['multipart'])) {
       // file upload
