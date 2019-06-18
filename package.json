@@ -1,7 +1,7 @@
 {
-  "name": "express-openapi-middleware",
+  "name": "openapi-express-middleware",
   "version": "0.0.1",
-  "repository": "https://github.com/phongnd39/swagger-middleware.git",
+  "repository": "https://github.com/phongnd39/openapi-express-middleware.git",
   "author": "phongnd <nguyenphong.hanu@gmail.com>",
   "license": "MIT",
   "scripts": {

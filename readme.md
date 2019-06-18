@@ -12,13 +12,13 @@ A (group of) middleware that consumes Swagger (OpenApi version 2) or OpenApi ver
 ## Installation
 
 ```bash
-yarn add express-openapi-middleware
+yarn add openapi-express-middleware
 ```
 
 or
 
 ```bash
-npm install --save express-openapi-middleware
+npm install --save openapi-express-middleware
 ```
 
 ## Usage
@@ -27,7 +27,7 @@ import via ES6 syntax
 
 ```js
 import Express from 'express'
-import expressOpenApiMiddleware from 'express-openapi-middleware'
+import expressOpenApiMiddleware from 'openapi-express-middleware'
 import swaggerFile from './swaggerFile'
 const app = Express()
 
@@ -43,7 +43,7 @@ or CommonJs
 
 ```js
 const Express = require('express')
-const expressOpenApiMiddleware = require('express-openapi-middleware').default
+const expressOpenApiMiddleware = require('openapi-express-middleware').default
 const swaggerFile = require('./swaggerFile')
 const app = Express()
 

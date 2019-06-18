@@ -28,7 +28,7 @@ export function requestParser(options = {}) {
     },
     multipart: {
       dest: tmp.dirSync({
-        prefix: 'express-openapi-middleware-',
+        prefix: 'openapi-express-middleware-',
         unsafeCleanup: true
       }).name,
       putSingleFilesInArray: false
