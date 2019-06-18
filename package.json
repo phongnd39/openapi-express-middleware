@@ -1,6 +1,6 @@
 {
   "name": "openapi-express-middleware",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "repository": "https://github.com/phongnd39/openapi-express-middleware.git",
   "author": "phongnd <nguyenphong.hanu@gmail.com>",
   "license": "MIT",
