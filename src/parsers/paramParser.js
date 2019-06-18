@@ -2,7 +2,7 @@ import * as _ from 'lodash'
 import ono from 'ono'
 import { jsonSchema } from '../utils'
 
-export function paramParser(app) {
+export function paramParser() {
   return [
     // viewData,
     parsePathParam,
@@ -101,6 +101,10 @@ function parseBodyParam(req, res, next) {
 }
 
 function parsePathParam(req, res, next) {
+  if (!req.swagger) {
+    return next()
+  }
+
   const swaggerParamRegExp = /{([^/}]+)}/g
   req.pathParams = {}
 

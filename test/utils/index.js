@@ -1,9 +1,8 @@
 import express from 'express'
 import request from 'supertest'
 import * as _ from 'lodash'
-import createMiddleware from 'swagger-express-middleware'
 import SwaggerParser from 'swagger-parser'
-import { parseRequest } from '../..'
+import { expressOpenApiMiddleware } from '../../src'
 import template from './template'
 
 const defaultResponses = {
@@ -91,27 +90,25 @@ function createPathUrl(position) {
 function createExpressInstance(swaggerFile, position) {
   const app = express()
 
-  createMiddleware(swaggerFile, app, (error, swaggerMiddleware) => {
-    app.use(
-      swaggerMiddleware.metadata(),
-      parseRequest(app),
-      swaggerMiddleware.validateRequest(),
-      (error, req, res, next) => {
-        if (error) {
-          // console.log(error)
-          return res.status(error.status).json({
-            message: error.message
-          })
-        }
-        next()
+  app.use(
+    expressOpenApiMiddleware(swaggerFile, app, {
+      enableBodyParser: true,
+      enableValidateRequest: true
+    }),
+    (error, req, res, next) => {
+      if (error) {
+        // console.log(error)
+        return res.status(error.status).json({
+          message: error.message
+        })
       }
-    )
-    app.use(express.static('static'))
+      next()
+    }
+  )
 
-    // put generated routes here
-    app.post(createExpressPathUrl(position), (req, res) => {
-      res.send('Success')
-    })
+  // put generated routes here
+  app.post(createExpressPathUrl(position), (req, res) => {
+    res.send('Success')
   })
 
   return app

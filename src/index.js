@@ -1,7 +1,39 @@
-import createMiddleware from 'swagger-express-middleware'
+import createMiddleware, {
+  DataStore,
+  FileDataStore,
+  MemoryDataStore,
+  Resource
+} from 'swagger-express-middleware'
 import { requestParser, paramParser } from './parsers'
 
-export default createMiddleware
-export function parseRequest(app, options = {}) {
-  return [...requestParser(options), ...paramParser(app)]
+function parseRequest(app, options = {}) {
+  return [...requestParser(options), ...paramParser()]
+}
+
+function expressOpenApiMiddleware(swagger, router, options = {}) {
+  const defaultOptions = {
+    enableBodyParser: false,
+    enableValidateRequest: false
+  }
+  const mergedOptions = { ...defaultOptions, ...options }
+  const swaggerExpressMiddleware = createMiddleware(swagger, router)
+  let middleware = []
+  if (mergedOptions.enableBodyParser || mergedOptions.enableValidateRequest) {
+    middleware = [...middleware, ...swaggerExpressMiddleware.metadata()]
+  }
+  if (mergedOptions.enableBodyParser) {
+    middleware = [...middleware, ...parseRequest(router)]
+  }
+  if (mergedOptions.enableValidateRequest) {
+    middleware = [...middleware, ...swaggerExpressMiddleware.validateRequest()]
+  }
+  return middleware
+}
+
+export {
+  expressOpenApiMiddleware,
+  DataStore,
+  FileDataStore,
+  MemoryDataStore,
+  Resource
 }
