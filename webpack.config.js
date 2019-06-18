@@ -10,7 +10,7 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'index.js',
     publicPath: '/',
-    libraryTarget: 'commonjs'
+    libraryTarget: 'commonjs2'
   },
   target: 'node',
   devtool: 'cheap-eval-source-map',
